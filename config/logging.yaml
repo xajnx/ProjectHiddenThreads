@@ -1,0 +1,46 @@
+version: 1
+disable_existing_loggers: false
+formatters:
+  json:
+    format: '{"time":"%(asctime)s","level":"%(levelname)s","logger":"%(name)s","message":"%(message)s"}'
+  plain:
+    format: '%(asctime)s %(levelname)s %(name)s %(message)s'
+handlers:
+  console:
+    class: logging.StreamHandler
+    level: INFO
+    formatter: plain
+    stream: ext://sys.stdout
+  app_file:
+    class: logging.handlers.RotatingFileHandler
+    level: INFO
+    formatter: json
+    filename: logs/app.log
+    maxBytes: 5242880
+    backupCount: 5
+  crawler_file:
+    class: logging.handlers.RotatingFileHandler
+    level: INFO
+    formatter: json
+    filename: logs/crawler.log
+    maxBytes: 5242880
+    backupCount: 5
+  downloader_file:
+    class: logging.handlers.RotatingFileHandler
+    level: INFO
+    formatter: json
+    filename: logs/downloader.log
+    maxBytes: 5242880
+    backupCount: 5
+root:
+  level: INFO
+  handlers: [console, app_file]
+loggers:
+  scraper.crawler:
+    level: INFO
+    handlers: [crawler_file]
+    propagate: true
+  scraper.downloader:
+    level: INFO
+    handlers: [downloader_file]
+    propagate: true

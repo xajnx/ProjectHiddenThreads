@@ -1,0 +1,7 @@
+beautifulsoup4==4.12.3
+Pillow==12.2.0
+PyMuPDF==1.26.0
+PyYAML==6.0.2
+pytesseract==0.3.13
+requests==2.32.3
+urllib3==2.2.3

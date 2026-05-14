@@ -1,0 +1,43 @@
+crawl:
+  domains:
+    - https://www.war.gov/ufo/
+  max_depth: 2
+  allowed_domains:
+    - war.gov
+  blocked_domains: []
+  respect_robots_txt: false
+  request_timeout_seconds: 20
+  request_delay_seconds: 0.6
+  max_pages_per_domain: 150
+  pagination_start: 1
+  pagination_end: 20
+  pagination_templates:
+    - "?page={page}"
+
+download:
+  max_workers: 4
+  retries: 3
+  backoff_factor: 1.0
+  chunk_size_bytes: 1048576
+
+data:
+  raw_documents_dir: data/raw/documents
+  raw_videos_dir: data/raw/videos
+  raw_audio_dir: data/raw/audio
+  raw_images_dir: data/raw/images
+  raw_archives_dir: data/raw/archives
+  versions_dir: data/versions
+  database_path: database/archive.db
+
+evidence_grading:
+  enabled: true
+  government_domain_suffixes:
+    - .gov
+    - .mil
+  tier1_asset_types:
+    - document
+    - video
+    - audio
+    - archive
+  domain_tier_overrides:
+    war.gov: 1

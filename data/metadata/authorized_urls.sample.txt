@@ -1,0 +1,4 @@
+# One URL per line. Replace with authorized direct asset links.
+# Example:
+# https://example.gov/ufo/dump/reports/report-001.pdf
+# https://example.gov/ufo/dump/video/briefing.mp4

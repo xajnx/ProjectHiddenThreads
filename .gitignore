@@ -1,0 +1,21 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+.vscode/
+watch_*
+data/raw/
+logs/
+prompts/
+
+# Release payloads and generated datasets (keep structure via .gitkeep files)
+direct_download/release_1/**
+!direct_download/release_1/**/
+!direct_download/release_1/**/.gitkeep
+
+data/parsed_text/**
+!data/parsed_text/**/
+!data/parsed_text/**/.gitkeep
+
+# Prevent syncing packaged source dumps
+**/source.zip

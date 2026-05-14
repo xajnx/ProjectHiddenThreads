@@ -1,0 +1,40 @@
+crawl:
+  domains:
+    - https://www.archives.gov/research/topics/uaps
+  max_depth: 2
+  allowed_domains: []
+  blocked_domains: []
+  respect_robots_txt: true
+  request_timeout_seconds: 20
+  request_delay_seconds: 0.5
+  max_pages_per_domain: 300
+  pagination_start: 1
+  pagination_end: 1
+  pagination_templates: []
+
+download:
+  max_workers: 4
+  retries: 3
+  backoff_factor: 1.0
+  chunk_size_bytes: 1048576
+
+data:
+  raw_documents_dir: data/raw/documents
+  raw_videos_dir: data/raw/videos
+  raw_audio_dir: data/raw/audio
+  raw_images_dir: data/raw/images
+  raw_archives_dir: data/raw/archives
+  versions_dir: data/versions
+  database_path: database/archive.db
+
+evidence_grading:
+  enabled: true
+  government_domain_suffixes:
+    - .gov
+    - .mil
+  tier1_asset_types:
+    - document
+    - video
+    - audio
+    - archive
+  domain_tier_overrides: {}

@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ProjectHiddenThreads Dashboard</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header>
+      <h1>ProjectHiddenThreads Local Archive Dashboard</h1>
+      <p id="summary">Indexed records: 0</p>
+    </header>
+
+    <section class="insights-bar" id="insights-bar">
+      <div class="insight-card">
+        <h2>Parse Status</h2>
+        <div id="parse-status" class="insight-list">Loading...</div>
+      </div>
+      <div class="insight-card">
+        <h2>Top Extracted Entities</h2>
+        <div id="top-entities" class="insight-list">Loading...</div>
+      </div>
+    </section>
+
+    <section class="entity-browse-bar card">
+      <h2>Entity Browse</h2>
+      <div id="entity-browse" class="entity-browse-list">Loading...</div>
+    </section>
+
+    <main class="layout">
+      <section class="card">
+        <div class="filters">
+          <div class="full">
+            <label for="q">Search</label>
+            <input id="q" type="search" placeholder="Search title, URL, rationale, or path" />
+          </div>
+
+          <div>
+            <label for="kind">Kind</label>
+            <select id="kind"></select>
+          </div>
+
+          <div>
+            <label for="asset_type">Asset Type</label>
+            <select id="asset_type"></select>
+          </div>
+
+          <div>
+            <label for="status">Status</label>
+            <select id="status"></select>
+          </div>
+
+          <div>
+            <label for="source_domain">Source Domain</label>
+            <select id="source_domain"></select>
+          </div>
+
+          <div>
+            <label for="evidence_tier">Evidence Tier</label>
+            <select id="evidence_tier"></select>
+          </div>
+
+          <div>
+            <label for="discovered_from">Discovered From</label>
+            <input id="discovered_from" type="date" />
+          </div>
+
+          <div>
+            <label for="discovered_to">Discovered To</label>
+            <input id="discovered_to" type="date" />
+          </div>
+
+          <div class="actions full">
+            <button id="apply" class="primary">Apply Filters</button>
+            <button id="reset" class="ghost">Reset</button>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Title</th>
+                <th>Kind</th>
+                <th>Asset Type</th>
+                <th>Domain</th>
+                <th>Status</th>
+                <th>Tier</th>
+                <th>Size</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="results-body"></tbody>
+          </table>
+        </div>
+
+        <div class="results-footer">
+          <div id="page"></div>
+          <div class="pager">
+            <button id="prev">Previous</button>
+            <button id="next">Next</button>
+          </div>
+        </div>
+      </section>
+
+      <aside class="card preview" id="preview">
+        <div class="empty">Select any row and click Preview to inspect content.</div>
+      </aside>
+    </main>
+
+    <script src="/app.js"></script>
+  </body>
+</html>
