@@ -8,16 +8,33 @@
   </head>
   <body>
     <header>
-      <h1>ProjectHiddenThreads Local Archive Dashboard</h1>
+      <div class="header-top">
+        <h1>ProjectHiddenThreads Local Archive Dashboard</h1>
+        <div class="theme-switcher">
+          <label for="theme-select">Theme</label>
+          <select id="theme-select" aria-label="Dashboard theme">
+            <option value="neon_ops">Neon Ops</option>
+            <option value="black_ops">Black Ops</option>
+            <option value="night_vision">Night Vision</option>
+          </select>
+        </div>
+      </div>
       <p id="summary">Indexed records: 0</p>
     </header>
 
+    <section class="breadcrumb-bar card" aria-label="Navigation breadcrumbs">
+      <div id="breadcrumbs" class="breadcrumbs">
+        <span class="breadcrumb-empty">No breadcrumb context yet.</span>
+      </div>
+      <button id="clear-breadcrumbs" class="ghost breadcrumb-clear">Clear</button>
+    </section>
+
     <section class="insights-bar" id="insights-bar">
-      <div class="insight-card">
+      <div class="insight-card compact">
         <h2>Parse Status</h2>
         <div id="parse-status" class="insight-list">Loading...</div>
       </div>
-      <div class="insight-card">
+      <div class="insight-card compact">
         <h2>Top Extracted Entities</h2>
         <div id="top-entities" class="insight-list">Loading...</div>
       </div>
@@ -103,11 +120,23 @@
           </div>
         </div>
       </section>
-
-      <aside class="card preview" id="preview">
-        <div class="empty">Select any row and click Preview to inspect content.</div>
-      </aside>
     </main>
+
+    <div id="preview-modal" class="modal hidden">
+      <div class="modal-overlay"></div>
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 id="preview-title">Preview</h2>
+          <div class="modal-actions">
+            <button id="open-tab" class="ghost">Open In New Tab</button>
+            <button class="modal-close" id="modal-close">&times;</button>
+          </div>
+        </div>
+        <div class="modal-body" id="preview">
+          <div class="empty">Select any row to inspect content.</div>
+        </div>
+      </div>
+    </div>
 
     <script src="/app.js"></script>
   </body>

@@ -1,0 +1,4 @@
+nohup: ignoring input
+127.0.0.1 - - [13/May/2026 20:27:26] "GET /api/debrief?asset_id=1 HTTP/1.1" 200 -
+127.0.0.1 - - [13/May/2026 20:27:26] "GET /api/correlations?asset_id=1&type=entity HTTP/1.1" 200 -
+127.0.0.1 - - [13/May/2026 20:27:26] "GET /api/timeline HTTP/1.1" 200 -

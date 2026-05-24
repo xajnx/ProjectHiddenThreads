@@ -12,7 +12,7 @@ prompts/
 direct_download/release_1/**
 !direct_download/release_1/**/
 !direct_download/release_1/**/.gitkeep
-
+direct_download/release_*/**
 data/parsed_text/**
 !data/parsed_text/**/
 !data/parsed_text/**/.gitkeep

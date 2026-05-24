@@ -127,13 +127,13 @@ Document parsing runs automatically after acquisition/import for supported `.txt
 Launch the local HTML dashboard server:
 
 ```bash
-./.venv/bin/python visualizations/dashboard/server.py --host 127.0.0.1 --port 8080
+./.venv/bin/python visualizations/dashboard/server.py --host 127.0.0.1 --port 18117
 ```
 
 Then open:
 
 ```text
-http://127.0.0.1:8080
+http://127.0.0.1:18117
 ```
 
 Dashboard features:

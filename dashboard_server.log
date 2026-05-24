@@ -1,0 +1,13 @@
+nohup: ignoring input
+127.0.0.1 - - [13/May/2026 20:56:56] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [13/May/2026 20:56:58] "GET /api/summary HTTP/1.1" 200 -
+127.0.0.1 - - [13/May/2026 21:02:22] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [13/May/2026 21:02:22] "GET /styles.css HTTP/1.1" 200 -
+127.0.0.1 - - [13/May/2026 21:02:22] "GET /app.js HTTP/1.1" 200 -
+127.0.0.1 - - [13/May/2026 21:02:22] "GET /api/summary HTTP/1.1" 200 -
+127.0.0.1 - - [13/May/2026 21:02:22] "GET /styles.css HTTP/1.1" 200 -
+127.0.0.1 - - [13/May/2026 21:02:22] "GET /favicon.ico HTTP/1.1" 404 -
+127.0.0.1 - - [13/May/2026 21:02:22] "GET /api/insights HTTP/1.1" 200 -
+127.0.0.1 - - [13/May/2026 21:02:22] "GET /api/entities?limit=100 HTTP/1.1" 200 -
+127.0.0.1 - - [13/May/2026 21:02:22] "GET /api/records?page=1&page_size=50 HTTP/1.1" 200 -
+127.0.0.1 - - [13/May/2026 21:02:38] "GET /dashboard.html?_hardReload=1778724158168 HTTP/1.1" 404 -

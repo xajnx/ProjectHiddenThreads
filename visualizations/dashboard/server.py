@@ -42,6 +42,22 @@ def _preview_type_for_path(path: Path) -> str:
     return "binary"
 
 
+def _normalize_parse_status_from_meta(payload: dict[str, Any]) -> str:
+    parse_status = str(payload.get("parse_status") or "").strip()
+    if parse_status:
+        return parse_status
+    output_text_path = payload.get("output_text_path")
+    return "parsed_legacy" if output_text_path else "unknown"
+
+
+def _parse_status_from_meta_file(path: Path) -> str:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return ""
+    return _normalize_parse_status_from_meta(payload)
+
+
 def load_db_records(db_path: Path, project_root: Path) -> list[dict[str, Any]]:
     if not db_path.exists():
         return []
@@ -127,6 +143,14 @@ def load_file_records(project_root: Path) -> list[dict[str, Any]]:
                 continue
             rel = _safe_relative_path(path, project_root)
             preview_type = _preview_type_for_path(path)
+            parse_status = ""
+            if kind == "parsed_text":
+                if path.name.endswith(".meta.json"):
+                    parse_status = _parse_status_from_meta_file(path)
+                else:
+                    meta_candidate = path.with_suffix(".meta.json")
+                    if meta_candidate.exists():
+                        parse_status = _parse_status_from_meta_file(meta_candidate)
             records.append(
                 {
                     "record_id": f"file:{rel}",
@@ -136,6 +160,7 @@ def load_file_records(project_root: Path) -> list[dict[str, Any]]:
                     "source_domain": "",
                     "asset_type": kind,
                     "status": "indexed",
+                    "parse_status": parse_status,
                     "evidence_tier": None,
                     "evidence_rationale": "",
                     "mime_type": mimetypes.guess_type(str(path))[0] or "",
@@ -163,15 +188,9 @@ def parse_status_summary(project_root: Path) -> dict[str, int]:
         return counts
 
     for sidecar_path in parsed_root.rglob("*.meta.json"):
-        try:
-            payload = json.loads(sidecar_path.read_text(encoding="utf-8"))
-        except Exception:
-            continue
-
-        parse_status = str(payload.get("parse_status") or "")
+        parse_status = _parse_status_from_meta_file(sidecar_path)
         if not parse_status:
-            output_text_path = payload.get("output_text_path")
-            parse_status = "parsed_legacy" if output_text_path else "unknown"
+            continue
         counts[parse_status] = counts.get(parse_status, 0) + 1
 
     return dict(sorted(counts.items(), key=lambda item: item[0]))
@@ -222,6 +241,7 @@ def filter_records(
     kind = query.get("kind", [""])[0].strip().lower()
     asset_type = query.get("asset_type", [""])[0].strip().lower()
     status = query.get("status", [""])[0].strip().lower()
+    parse_status = query.get("parse_status", [""])[0].strip().lower()
     source_domain = query.get("source_domain", [""])[0].strip().lower()
     evidence_tier = query.get("evidence_tier", [""])[0].strip()
     discovered_from = query.get("discovered_from", [""])[0].strip()
@@ -247,6 +267,8 @@ def filter_records(
         if asset_type and str(record.get("asset_type", "")).lower() != asset_type:
             continue
         if status and str(record.get("status", "")).lower() != status:
+            continue
+        if parse_status and str(record.get("parse_status", "")).lower() != parse_status:
             continue
         if (
             source_domain
@@ -446,6 +468,247 @@ def entity_browse(
     ]
 
 
+def fetch_asset_debrief(ctx: AppContext, asset_id: int) -> dict[str, Any]:
+    """Return a structured debrief for a single asset."""
+    records = load_db_records(ctx.db_path, ctx.project_root)
+    record = next(
+        (r for r in records if int(r["record_id"].split(":", 1)[1]) == asset_id), None
+    )
+    if record is None:
+        return {"error": "Asset not found"}
+
+    findings = fetch_asset_findings(ctx.db_path, asset_id)
+    entities = findings.get("entities", [])
+    events = findings.get("events", [])
+
+    top_entities = sorted(
+        entities, key=lambda e: (-e.get("confidence", 0), -e.get("occurrences", 0))
+    )[:10]
+    sorted_events = sorted(events, key=lambda e: -e.get("confidence", 0))
+
+    entity_count = len(entities)
+    event_count = len(events)
+    avg_entity_confidence = (
+        sum(e.get("confidence", 0) for e in entities) / entity_count
+        if entity_count > 0
+        else 0
+    )
+    avg_event_confidence = (
+        sum(e.get("confidence", 0) for e in events) / event_count
+        if event_count > 0
+        else 0
+    )
+
+    debrief = {
+        "asset": record,
+        "summary": {
+            "total_entities": entity_count,
+            "total_events": event_count,
+            "avg_entity_confidence": round(avg_entity_confidence, 3),
+            "avg_event_confidence": round(avg_event_confidence, 3),
+            "confidence_tier": record.get("evidence_tier"),
+        },
+        "top_entities": top_entities,
+        "all_events": sorted_events,
+    }
+    return debrief
+
+
+def fetch_asset_correlations(
+    ctx: AppContext, asset_id: int, correlation_type: str = "entity"
+) -> list[dict[str, Any]]:
+    """Return related assets by entity overlap, date, location, or domain."""
+    if correlation_type not in {"entity", "date", "location", "domain"}:
+        correlation_type = "entity"
+
+    records = load_db_records(ctx.db_path, ctx.project_root)
+    source_record = next(
+        (r for r in records if int(r["record_id"].split(":", 1)[1]) == asset_id), None
+    )
+    if source_record is None:
+        return []
+
+    correlations: list[dict[str, Any]] = []
+
+    if not ctx.db_path.exists():
+        return correlations
+
+    with sqlite3.connect(ctx.db_path) as connection:
+        connection.row_factory = sqlite3.Row
+        tables = {
+            row[0]
+            for row in connection.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'",
+            ).fetchall()
+        }
+        if "extracted_entities" not in tables:
+            return correlations
+
+        if correlation_type == "entity":
+            rows = connection.execute(
+                """
+                SELECT DISTINCT ee2.asset_id, COUNT(*) as shared_count
+                FROM extracted_entities ee1
+                JOIN extracted_entities ee2 ON ee1.normalized_text = ee2.normalized_text
+                    AND ee1.entity_type = ee2.entity_type
+                WHERE ee1.asset_id = ? AND ee2.asset_id != ?
+                GROUP BY ee2.asset_id
+                ORDER BY shared_count DESC
+                """,
+                (asset_id, asset_id),
+            ).fetchall()
+
+            for row in rows:
+                linked_record = next(
+                    (
+                        r
+                        for r in records
+                        if int(r["record_id"].split(":", 1)[1]) == row["asset_id"]
+                    ),
+                    None,
+                )
+                if linked_record:
+                    correlations.append(
+                        {
+                            "asset_id": row["asset_id"],
+                            "title": linked_record.get("title"),
+                            "why_linked": f"Shared {row['shared_count']} entities",
+                            "link_strength": min(1.0, row["shared_count"] / 10.0),
+                            "shared_count": row["shared_count"],
+                        }
+                    )
+
+        elif correlation_type == "date":
+            source_date = (
+                source_record.get("discovered_at", "")[:10]
+                if source_record.get("discovered_at")
+                else None
+            )
+            if source_date:
+                rows = connection.execute(
+                    """
+                    SELECT DISTINCT a.id, a.discovered_at
+                    FROM assets a
+                    WHERE a.id != ? AND a.discovered_at IS NOT NULL
+                    ORDER BY ABS(julianday(a.discovered_at) - julianday(?))
+                    LIMIT 20
+                    """,
+                    (asset_id, source_date),
+                ).fetchall()
+
+                for row in rows:
+                    linked_record = next(
+                        (
+                            r
+                            for r in records
+                            if int(r["record_id"].split(":", 1)[1]) == row["id"]
+                        ),
+                        None,
+                    )
+                    if linked_record:
+                        correlations.append(
+                            {
+                                "asset_id": row["id"],
+                                "title": linked_record.get("title"),
+                                "why_linked": f"Date proximity: {row['discovered_at'][:10]}",
+                                "link_strength": 0.5,
+                            }
+                        )
+
+        elif correlation_type == "domain":
+            source_domain = source_record.get("source_domain", "")
+            if source_domain:
+                rows = connection.execute(
+                    """
+                    SELECT id FROM assets
+                    WHERE id != ? AND source_domain = ?
+                    """,
+                    (asset_id, source_domain),
+                ).fetchall()
+
+                for row in rows:
+                    linked_record = next(
+                        (
+                            r
+                            for r in records
+                            if int(r["record_id"].split(":", 1)[1]) == row["id"]
+                        ),
+                        None,
+                    )
+                    if linked_record:
+                        correlations.append(
+                            {
+                                "asset_id": row["id"],
+                                "title": linked_record.get("title"),
+                                "why_linked": f"Same source: {source_domain}",
+                                "link_strength": 0.7,
+                            }
+                        )
+
+    return correlations
+
+
+def fetch_timeline(
+    ctx: AppContext, date_from: str = "", date_to: str = "", entity_filter: str = ""
+) -> list[dict[str, Any]]:
+    """Return chronological events with optional filtering."""
+    if not ctx.db_path.exists():
+        return []
+
+    events: list[dict[str, Any]] = []
+    with sqlite3.connect(ctx.db_path) as connection:
+        connection.row_factory = sqlite3.Row
+        tables = {
+            row[0]
+            for row in connection.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'",
+            ).fetchall()
+        }
+        if "extracted_events" not in tables:
+            return []
+
+        query = "SELECT asset_id, event_type, event_date, event_text, confidence FROM extracted_events WHERE 1=1"
+        params: list[Any] = []
+
+        if date_from:
+            query += " AND event_date >= ?"
+            params.append(date_from)
+        if date_to:
+            query += " AND event_date <= ?"
+            params.append(date_to)
+
+        query += " ORDER BY event_date DESC, confidence DESC"
+
+        rows = connection.execute(query, params).fetchall()
+
+        records = load_db_records(ctx.db_path, ctx.project_root)
+        for row in rows:
+            asset_record = next(
+                (
+                    r
+                    for r in records
+                    if int(r["record_id"].split(":", 1)[1]) == row["asset_id"]
+                ),
+                None,
+            )
+            events.append(
+                {
+                    "asset_id": row["asset_id"],
+                    "asset_title": (
+                        asset_record.get("title")
+                        if asset_record
+                        else f"Asset {row['asset_id']}"
+                    ),
+                    "event_type": row["event_type"],
+                    "event_date": row["event_date"],
+                    "event_text": row["event_text"][:200] if row["event_text"] else "",
+                    "confidence": row["confidence"],
+                }
+            )
+
+    return events
+
+
 class DashboardHandler(BaseHTTPRequestHandler):
     context: AppContext
 
@@ -474,6 +737,18 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
         if parsed.path.startswith("/api/preview"):
             self._handle_api_preview(parsed)
+            return
+
+        if parsed.path.startswith("/api/debrief"):
+            self._handle_api_debrief(parsed)
+            return
+
+        if parsed.path.startswith("/api/correlations"):
+            self._handle_api_correlations(parsed)
+            return
+
+        if parsed.path.startswith("/api/timeline"):
+            self._handle_api_timeline(parsed)
             return
 
         if parsed.path.startswith("/files/"):
@@ -510,9 +785,14 @@ class DashboardHandler(BaseHTTPRequestHandler):
         rel = route_path.split("/files/", 1)[1]
         rel_path = Path(rel)
         file_path = (self.context.project_root / rel_path).resolve()
-        data_root = (self.context.project_root / "data").resolve()
+        allowed_roots = {
+            (self.context.project_root / "data").resolve(),
+            (self.context.project_root / "direct_download").resolve(),
+        }
 
-        if data_root not in file_path.parents and file_path != data_root:
+        if not any(
+            file_path == root or root in file_path.parents for root in allowed_roots
+        ):
             self._json({"error": "Forbidden"}, status=403)
             return
         if not file_path.exists() or not file_path.is_file():
@@ -598,6 +878,48 @@ class DashboardHandler(BaseHTTPRequestHandler):
             }
         )
 
+    def _handle_api_debrief(self, parsed) -> None:
+        query = parse_qs(parsed.query)
+        asset_id_str = query.get("asset_id", [""])[0]
+        if not asset_id_str:
+            self._json({"error": "asset_id is required"}, status=400)
+            return
+        try:
+            asset_id = int(asset_id_str)
+        except ValueError:
+            self._json({"error": "asset_id must be an integer"}, status=400)
+            return
+
+        debrief = fetch_asset_debrief(self.context, asset_id)
+        self._json(debrief)
+
+    def _handle_api_correlations(self, parsed) -> None:
+        query = parse_qs(parsed.query)
+        asset_id_str = query.get("asset_id", [""])[0]
+        correlation_type = query.get("type", ["entity"])[0].strip()
+        if not asset_id_str:
+            self._json({"error": "asset_id is required"}, status=400)
+            return
+        try:
+            asset_id = int(asset_id_str)
+        except ValueError:
+            self._json({"error": "asset_id must be an integer"}, status=400)
+            return
+
+        correlations = fetch_asset_correlations(
+            self.context, asset_id, correlation_type
+        )
+        self._json({"correlations": correlations, "type": correlation_type})
+
+    def _handle_api_timeline(self, parsed) -> None:
+        query = parse_qs(parsed.query)
+        date_from = query.get("date_from", [""])[0].strip()
+        date_to = query.get("date_to", [""])[0].strip()
+        entity_filter = query.get("entity_filter", [""])[0].strip()
+
+        timeline = fetch_timeline(self.context, date_from, date_to, entity_filter)
+        self._json({"events": timeline})
+
     def _json(self, payload: dict[str, Any], status: int = 200) -> None:
         data = json.dumps(payload).encode("utf-8")
         self.send_response(status)
@@ -620,7 +942,7 @@ def parse_args() -> argparse.Namespace:
         description="Local dashboard server for ProjectHiddenThreads",
     )
     parser.add_argument("--host", default="127.0.0.1")
-    parser.add_argument("--port", type=int, default=8080)
+    parser.add_argument("--port", type=int, default=18117)
     return parser.parse_args()
 
 
